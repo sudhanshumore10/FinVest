@@ -3,5 +3,7 @@ Make Sure You Are Inside FinVest/backend folder
 #####################################################################################
 
 python -m venv envo
-pip install -r ../requirements.txt
+
 . envo/Scripts/activate
+
+pip install -r ../requirements.txt

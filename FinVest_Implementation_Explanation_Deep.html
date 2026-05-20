@@ -1,0 +1,304 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>FinVest Deep Implementation Guide</title>
+<style>
+@page { size: A4; margin: 13mm; }
+body { font-family: Arial, sans-serif; color: #142033; line-height: 1.5; }
+h1, h2, h3, h4 { color: #0f172a; }
+h1 { font-size: 27px; margin-bottom: 6px; }
+h2 { font-size: 21px; margin-top: 28px; border-bottom: 2px solid #c9a84c; padding-bottom: 4px; }
+h3 { font-size: 16px; margin-top: 22px; }
+h4 { font-size: 13px; margin-top: 16px; margin-bottom: 6px; }
+p, li, td, th { font-size: 10.5px; }
+.small { color: #475569; font-size: 9px; }
+.card { background: #f8fafc; border: 1px solid #dbe3ef; border-radius: 8px; padding: 12px; margin: 10px 0; }
+.code { font-family: Consolas, monospace; font-size: 9.5px; background: #eef2f7; padding: 1px 4px; border-radius: 4px; }
+pre.block { white-space: pre-wrap; word-break: break-word; background: #f3f4f6; border: 1px solid #d9e1ea; padding: 10px; border-radius: 8px; font: 9px/1.35 Consolas, monospace; }
+table { width: 100%; border-collapse: collapse; margin: 10px 0 18px; }
+th, td { border: 1px solid #cbd5e1; padding: 7px; vertical-align: top; }
+th { background: #e2e8f0; text-align: left; }
+ul, ol { margin-top: 4px; }
+.section-break { page-break-before: always; }
+</style>
+</head>
+<body>
+<h1>FinVest Deep Implementation Guide</h1>
+<p class="small">Prepared from the current running project at <span class="code">D:\FinVest\backend</span>. This document is intentionally detailed so teammates can study the real implementation and answer evaluator questions with confidence.</p>
+
+<div class="card">
+<p><strong>Scope note:</strong> This guide is based on the user stories and module list previously shared during development, plus the latest synced code now present in the project. Where the original wording and actual implementation differ, this document states both clearly. That is important in viva situations, because the best answer is accurate, not exaggerated.</p>
+</div>
+
+<h2>1. System Architecture Overview</h2>
+<p>FinVest is a server-rendered Flask application. The project follows a layered pattern rather than placing all logic in one file. The major layers are configuration/bootstrap, models, routes, services, utilities, and presentation templates. The goal of this separation is to keep request handling, business logic, persistence, and UI concerns independently manageable.</p>
+<p>The bootstrap sequence begins from <span class="code">backend/main.py</span> and <span class="code">backend/app/__init__.py</span>. The app factory initializes Flask, loads configuration, initializes SQLAlchemy, initializes MongoDB, registers the blueprints, and then attaches cross-cutting hooks like schema checks, automation execution, response-time capture, and shared template context injection.</p>
+<p>The practical effect is that almost every page render in the application is not a simple HTML response. Before the response is produced, the app can ensure database shape, refresh session activity, run due recurring financial jobs, and populate template-wide metadata such as unread notification count and current display currency.</p>
+
+<h3>1.1 Application Startup Flow</h3>
+<ol>
+<li><span class="code">backend/main.py</span> imports <span class="code">create_app()</span> and creates the Flask application object.</li>
+<li><span class="code">backend/config.py</span> provides MySQL and MongoDB settings.</li>
+<li><span class="code">extensions/db.py</span> initializes SQLAlchemy as the main ORM and transaction manager.</li>
+<li><span class="code">extensions/mongo.py</span> initializes the MongoDB client for log and snapshot storage.</li>
+<li>The app registers blueprints for auth, dashboard, budgets, goals, categories, notifications, reports, and transactions.</li>
+<li>Before each request, the app runs schema checks, touches the active session, and runs due automation jobs such as salary posting and recurring transactions.</li>
+<li>After each request, response time is measured and stored in app config for admin performance visualization.</li>
+<li>A context processor injects notification count, display currency, display symbol, exchange rates, selected language, and available languages into every rendered template.</li>
+<li>A Jinja filter named <span class="code">money</span> converts amounts into display-format currency strings.</li>
+</ol>
+
+<h3>1.2 Why This Architecture Matters</h3>
+<p>If the evaluator asks why everything was not placed inside route files, the correct explanation is that route files should stay focused on HTTP input/output and authorization, while service files hold reusable business logic. This project follows that pattern especially for automation, reports, notifications, currency handling, schema upgrades, and session tracking. It makes the code easier to maintain and easier to explain by feature.</p>
+
+<h2>2. Data Architecture and Persistence Model</h2>
+<p>The project uses <strong>two persistence stores</strong>. MySQL is the primary relational store for finance domain objects and application state. MongoDB is the secondary document store for flexible event-style data such as activity logs and report snapshots.</p>
+
+<h3>2.1 MySQL Tables and Their Responsibilities</h3>
+<table>
+<tr><th>Table</th><th>Purpose</th><th>Important Columns</th><th>Why It Exists</th></tr>
+<tr><td>users</td><td>Identity and access control</td><td>name, email, role, is_active, password_hash, security_answers</td><td>Stores who the user is, how they authenticate, whether they are blocked, and whether they are admin.</td></tr>
+<tr><td>active_sessions</td><td>Current login/session tracking</td><td>user_id, session_token, last_seen_at</td><td>Allows the admin module to estimate who is currently active, instead of relying only on historical login logs.</td></tr>
+<tr><td>user_settings</td><td>User preferences and automation defaults</td><td>currency, locale, language, month_start_day, monthly_salary, monthly_salary_last_added</td><td>Separates profile-level application settings from identity data and provides input for salary automation and localization.</td></tr>
+<tr><td>accounts</td><td>Financial containers</td><td>account_name, type, balance</td><td>Supports multiple user accounts such as Cash, Bank, and UPI, and stores balance summaries used by the dashboard.</td></tr>
+<tr><td>categories</td><td>Classification of transactions</td><td>name, type</td><td>Allows income and expense analysis, reporting, budgeting, and category-wise charts.</td></tr>
+<tr><td>transactions</td><td>Atomic financial events</td><td>account_id, category_id, type, amount, date, description</td><td>This is the core financial ledger used by dashboard, reports, budgets, and exports.</td></tr>
+<tr><td>budgets</td><td>Monthly category limits</td><td>category_id, limit_amount, month, year</td><td>Lets users define planning targets by category and month and compare them with actual spending.</td></tr>
+<tr><td>recurring_transactions</td><td>Automation source for repeating entries</td><td>frequency, next_run_date, last_run_date, is_active</td><td>Drives automatic monthly, daily, or yearly insertion of repeat expenses or incomes.</td></tr>
+<tr><td>goals</td><td>Savings target tracking</td><td>goal_name, target_amount, current_amount, deadline, status</td><td>Allows users to manage goal progress independently from raw transaction history.</td></tr>
+<tr><td>activity_logs</td><td>Structured audit information</td><td>user_name, user_email, action, details, created_at</td><td>Acts as an auditable event trail for admin visibility.</td></tr>
+<tr><td>notifications</td><td>User alerts with read state</td><td>title, message, notification_type, reference_key, is_read</td><td>Stores budget alerts, goal deadline alerts, and welcome guidance signals.</td></tr>
+</table>
+
+<h3>2.2 MongoDB Collections</h3>
+<table>
+<tr><th>Collection</th><th>Purpose</th><th>Reason MongoDB Fits</th></tr>
+<tr><td>activity_logs</td><td>Flexible action logging</td><td>Logs are append-oriented and document-shaped, so they do not require strict relational normalization.</td></tr>
+<tr><td>report_snapshots</td><td>Saved analytics summaries</td><td>Snapshots contain nested chart and summary payloads that naturally fit JSON-style storage.</td></tr>
+</table>
+
+<h3>2.3 Schema Evolution Strategy</h3>
+<p>The newer synced code introduced <span class="code">schema_service.py</span>. This exists because the project evolved after the first database version. Instead of assuming the local database already has every new column, the app checks the current schema at runtime.</p>
+<ul>
+<li>If <span class="code">users.security_answers</span> is missing, it is added.</li>
+<li>If <span class="code">user_settings.language</span> is missing, it is added.</li>
+<li>If <span class="code">user_settings.monthly_salary_last_added</span> is missing, it is added.</li>
+<li>If new tables such as <span class="code">active_sessions</span> or <span class="code">recurring_transactions</span> do not exist, <span class="code">db.create_all()</span> is used to create them.</li>
+</ul>
+<p>This is a lightweight runtime migration strategy. It is not as formal as Alembic, but it works well for a classroom project where the schema changes rapidly and teammates may run the app against older local databases.</p>
+
+<div class="section-break"></div>
+<h2>3. Part A: User Story Wise Deep Explanation</h2>
+
+<h3>US-1: Register and log in so the user can access the finance dashboard</h3>
+<p><strong>Main implementation files:</strong> <span class="code">auth_routes.py</span>, <span class="code">auth.html</span>, <span class="code">auth.css</span>, <span class="code">user_model.py</span>, <span class="code">active_session_service.py</span>, <span class="code">admin_service.py</span>.</p>
+<h4>Detailed behavior</h4>
+<ol>
+<li>The user opens <span class="code">/auth</span>. The auth template renders login and signup in a switchable panel interface.</li>
+<li>During signup, the backend reads username, email, password, confirm password, and five recovery answers.</li>
+<li>The backend validates:
+<ul>
+<li>username format using regex</li>
+<li>email uniqueness</li>
+<li>reserved admin email usage</li>
+<li>password complexity</li>
+<li>password confirmation match</li>
+<li>presence of all recovery answers</li>
+</ul>
+</li>
+<li>Recovery answers are normalized and then individually hashed before being bundled into a JSON string stored in <span class="code">users.security_answers</span>.</li>
+<li>Password is hashed using Werkzeug, not stored in plain text.</li>
+<li>After insertion, the code automatically creates the user’s settings row, default categories, and default account. This gives the new user a usable environment immediately after registration.</li>
+<li>During login, the backend tracks login attempts using Flask session keys. If too many failures happen in the cooldown window, the user is temporarily blocked from retrying.</li>
+<li>On successful login, session keys are set and a random session token is generated. That token is stored both in Flask session and the <span class="code">active_sessions</span> table through <span class="code">start_active_session()</span>.</li>
+<li>The login action is recorded via <span class="code">log_activity()</span>.</li>
+<li>If role is admin, the route redirects to admin dashboard. Otherwise it redirects to user dashboard home.</li>
+</ol>
+<h4>Technical strengths</h4>
+<ul>
+<li>Registration immediately seeds usable finance objects.</li>
+<li>Auth state is tied to auditable active-session rows.</li>
+<li>Password reset does not require mail infrastructure.</li>
+</ul>
+<h4>Honest difference from original story</h4>
+<p>The original story mentioned password reset through email token. The current code uses security-question based reset instead. Teammates should say this clearly if asked.</p>
+
+<h3>US-2: Set currency, locale, month start, and user preferences</h3>
+<p><strong>Main implementation files:</strong> <span class="code">dashboard_routes.py</span>, <span class="code">user_settings_model.py</span>, <span class="code">account.html</span>, <span class="code">currency_service.py</span>, <span class="code">i18n_service.py</span>.</p>
+<p>The <span class="code">/account</span> page lets users update display and planning preferences. Currency affects how amounts are shown through the context processor and template filter. Language and locale affect display normalization. Month-start day is constrained to 1–28 to avoid invalid calendar edges. Monthly salary is stored here and later consumed by the automation service, so this settings module is not just cosmetic.</p>
+
+<h3>US-3: Add income entries so inflows are tracked</h3>
+<p><strong>Main implementation files:</strong> <span class="code">transaction_routes.py</span>, <span class="code">transaction_service.py</span>, <span class="code">transaction_model.py</span>, <span class="code">transactions.html</span>.</p>
+<p>The user adds a transaction with type <span class="code">income</span>. The route validates account/category ownership, parses amount/date, stores the row, and then calls the transaction service to add the amount to the account balance. This means the balance screen is not recomputed lazily later; it is updated as part of the write path.</p>
+
+<h3>US-4: Add expense entries and categorize them</h3>
+<p>Expense flow is identical structurally to income flow, but the transaction effect is negative. The expense must be mapped to a valid user-owned category. Category totals later drive reports, dashboard pie chart segments, budget comparisons, and top-spending-category calculation.</p>
+
+<h3>US-5: Set category budgets and get threshold alerts</h3>
+<p><strong>Main implementation files:</strong> <span class="code">budget_routes.py</span>, <span class="code">budget_model.py</span>, <span class="code">notification_service.py</span>, <span class="code">budgets.html</span>, <span class="code">home.html</span>.</p>
+<p>Each budget is scoped to user, category, month, and year. Current-month expense transactions are aggregated by category. The app computes spending percentage against the limit and uses this for both UI status and notification generation. At 80%, a warning notification is created. At 100% or more, a budget exceeded notification is created.</p>
+
+<h3>US-6: Create savings goals and track progress</h3>
+<p><strong>Main implementation files:</strong> <span class="code">goal_routes.py</span>, <span class="code">goal_model.py</span>, <span class="code">goals.html</span>, dashboard home.</p>
+<p>Goals are stored independently from transactions because the user may want to track savings progress manually rather than deriving it from a single transaction category. Each goal has target, current amount, deadline, and status. The app supports full update plus a dedicated add-amount action for incremental progress.</p>
+
+<h3>US-7: View charts and KPIs to understand finances quickly</h3>
+<p><strong>Main implementation files:</strong> <span class="code">dashboard_routes.py</span>, <span class="code">home.html</span>, <span class="code">dashboard.css</span>.</p>
+<p>The server builds the dashboard state in <span class="code">_build_dashboard_data()</span>. This includes total balance, monthly income, monthly expense, average monthly spending, recent transactions, budget summaries, top goal, top spending category, and chart-ready data. The home page uses server-provided chart widths and conic-gradient styles rather than a heavy JS chart dependency.</p>
+
+<h3>US-8: Search and filter transaction history effectively</h3>
+<p>The transaction list supports server-side filters for type, category, date range, and amount range. This means the SQL query is narrowed before rendering. The result is cleaner than loading all transactions and filtering in the browser. Export is handled from the reports module, where transaction data can be downloaded after summary generation.</p>
+
+<h3>US-9: Import transactions from CSV</h3>
+<p><strong>Main implementation files:</strong> <span class="code">transaction_routes.py</span>, <span class="code">dummy_transactions.csv</span> sample file.</p>
+<p>The import route validates headers, normalizes rows, parses amount/date, creates missing categories if needed, resolves an account, checks duplicates through a composite identity rule, and then inserts only non-duplicate transactions. Imported rows still pass through the financial side effect path, so balances remain correct.</p>
+
+<h3>US-10: Secure access and auditable changes</h3>
+<p>Authorization is handled through decorators and role checks, especially for admin routes. Auditability comes from activity logging and active-session tracking. Together, they let the app answer both “who performed this action?” and “who is active right now?”</p>
+
+<h3>US-11: Welcome / onboarding guide</h3>
+<p>The project implements onboarding in two stages. First, there is a public onboarding/landing page at <span class="code">/</span>. Second, there is a dismissible quick guide inside the authenticated dashboard. This is useful in evaluation because the team can explain onboarding as a staged UX rather than a single page.</p>
+
+<h3>US-12: View monthly income vs expense comparison</h3>
+<p>The dashboard groups transaction totals over the last four months, computes the largest month value, and converts each month’s income and expense values into percentage widths. The template then renders the bars using those widths. This means the visual chart is directly derived from server-side finance aggregation.</p>
+
+<h3>US-13: View category-wise spending analysis</h3>
+<p>Current-month expense transactions are grouped by category and sorted descending. The route builds a conic-gradient pie chart style string and a separate legend list with category name, amount, percentage, and color. This gives both a visual representation and a textual representation for the same data.</p>
+
+<h3>US-14: View average monthly spending</h3>
+<p>The route computes monthly expense totals across the tracked months and averages only the months where expense is non-zero. That prevents zero-activity months from artificially lowering the average.</p>
+
+<h3>US-15: Admin views account activity history</h3>
+<p>The admin dashboard reads activity logs from MongoDB first, then falls back to SQL if Mongo is unavailable or empty. It transforms them into a unified row structure with user name, action, details, timestamp label, and normalized day key for daily charting. This allows both history viewing and “today’s activity” metrics.</p>
+
+<h3>US-16: View budget vs actual spending</h3>
+<p>This is implemented both on the budgets page and on the home dashboard. The route computes actual spend per budget category using current-month expense transactions and then attaches percentage values for visual warning states.</p>
+
+<h3>US-17: Edit or delete transactions</h3>
+<p>Editing a transaction is not a simple overwrite. The code must reverse the previous account effect, replace the transaction attributes, and then apply the new effect. Deleting must also reverse the financial impact before removing the row. This is an important detail to explain if someone asks how consistency is preserved.</p>
+
+<h3>US-18: Add notes or descriptions to transactions</h3>
+<p>Descriptions are stored in the transaction row and reused everywhere: transaction history, dashboard recent transactions, CSV export, JSON backup, and report analytics payloads.</p>
+
+<h3>US-19: Mark notifications as read</h3>
+<p>Notifications include an <span class="code">is_read</span> flag. The notification routes support marking a single notification read or marking all unread notifications read. The header bell shows unread count using a shared context processor.</p>
+
+<h3>US-20: View transaction history for a selected date range</h3>
+<p>Date range filtering is implemented directly in the transaction query through start-date and end-date comparisons. This supports historical review, filtered export, and budget/report investigation.</p>
+
+<div class="section-break"></div>
+<h2>4. Part B: Module Wise Deep Explanation</h2>
+
+<h3>Module 1: Authentication and Authorization</h3>
+<p>This module combines registration, login, logout, security-question based reset, login throttling, admin seeding, and active-session tracking. It uses Flask session for short-lived request-state identity and MySQL for persistent user identity. Admin recognition depends on role and reserved admin email policy. The module also acts as the initial data seeding point for new users by creating default settings, categories, and account immediately after registration.</p>
+
+<h3>Module 2: Transaction Management</h3>
+<p>This module is the financial event layer. Every transaction links user, account, and category. The route layer validates ownership, while the service layer applies monetary effects to the linked account. CSV import belongs conceptually here because it ultimately creates the same transaction records and must preserve the same balance rules.</p>
+<p>The critical design principle is: <strong>transactions are stored as history, account balances are stored as fast summaries, and the application keeps them synchronized in the write path</strong>.</p>
+
+<h3>Module 3: Category Management</h3>
+<p>Categories are user-specific and seeded with sensible defaults. This lets every user have a clean initial set without depending on a global static master list. The module becomes essential because transactions, budgets, and reports all depend on category identity.</p>
+
+<h3>Module 4: Dashboard Module</h3>
+<p>The dashboard is the synthesis layer of the application. It does not merely fetch rows; it builds business-facing summaries. Total balance comes from accounts, monthly KPIs come from current-month transactions, chart series come from grouped transaction history, and budget/goal cards come from planning modules. The dashboard also includes the quick-guide behavior and the profile-menu based navigation pattern defined in the layout template.</p>
+
+<h3>Module 5: Budget Planning</h3>
+<p>This module handles two related things: monthly planning budgets and recurring expenses. Planning budgets compare expected vs actual monthly category spend. Recurring expenses feed the automation engine, which creates actual transaction rows later. This makes the module more powerful than a static budget sheet: it becomes a spending-control plus automation-definition module.</p>
+
+<h3>Module 6: Reports and Analytics</h3>
+<p>This module turns transaction history into summarized decision-support data. The report service computes:
+total income, total expense, net, average monthly spending, savings rate, top expense category, income-source contribution, month-wise net chart, trend rows, and full transaction export sets. Snapshot saving to Mongo makes the reporting layer persistent beyond immediate page rendering.</p>
+
+<h3>Module 7: Reminder and Notifications</h3>
+<p>This module works by synchronizing logical reminders into stored notification rows. It is driven by business conditions, not manual entry. Examples include welcome notifications, budget threshold notifications, and goal deadline notifications. By using a reference key, the same logical event does not spam the user repeatedly.</p>
+
+<h3>Module 8: Data Export and Backup</h3>
+<p>CSV export provides a spreadsheet-friendly version of transactions plus analytics summary. JSON backup provides a more system-friendly snapshot including user profile, settings, accounts, categories, recurring transactions, goals, raw transactions, and analytics. This module supports portability and review use cases.</p>
+
+<h3>Module 9: Saving and Goals</h3>
+<p>This module stores savings targets in a way that is independent from raw transaction classification. That is a useful design for personal finance because savings progress may not always map to a single “savings” transaction category. The dashboard highlights top goal progress, and notifications provide deadline awareness.</p>
+
+<h3>Module 10: Account Management</h3>
+<p>The account module controls both user profile and financial account containers. The same page lets the user update name, password, currency/locale/language settings, salary defaults, and the list of Cash/Bank/UPI accounts. This is why the top-right profile dropdown points into account settings instead of maintaining a separate disjoint page.</p>
+
+<h3>Module 11: Admin and System Module</h3>
+<p>This module is one of the most technically rich parts of the project. It merges user management, activity auditing, system-wide financial visibility, login trend visualization, performance monitoring, and active-session counting. The admin dashboard does not rely on a single data source; it pulls from MySQL, MongoDB, request timing state, and session-tracking tables.</p>
+
+<div class="section-break"></div>
+<h2>5. Services Layer Deep Dive</h2>
+
+<h3>automation_service.py</h3>
+<p>This service introduces automated financial behavior.</p>
+<ul>
+<li><strong>Monthly salary:</strong> If the user has configured a monthly salary and it has not yet been posted for the current month, the service inserts an income transaction into the default account and records the month in <span class="code">monthly_salary_last_added</span>.</li>
+<li><strong>Recurring transactions:</strong> For each active recurring row, if the next run date is due, the service inserts real transactions and advances the recurrence schedule. It can catch up multiple missed runs because it uses a loop, not a single-if check.</li>
+</ul>
+<p>This is a strong talking point because it shows the app goes beyond manual CRUD and includes lifecycle automation.</p>
+
+<h3>active_session_service.py</h3>
+<p>This service defines the active session window, starts sessions at login, touches sessions during authenticated requests, removes stale ones, and counts current active sessions. It is the backbone of “logged in now” monitoring shown to admin.</p>
+
+<h3>report_service.py</h3>
+<p>This service is effectively the analytics engine. It builds filtered transaction queries, computes totals, builds grouped chart rows, generates trend statements, computes savings rate, identifies top categories/income sources, and optionally stores deduplicated report snapshots in MongoDB using a SHA-256 fingerprint.</p>
+
+<h3>notification_service.py</h3>
+<p>This service centralizes all system-generated notifications. It creates a welcome notification, checks budgets against monthly expense totals, checks goal deadlines, and exposes unread count helpers. The use of <span class="code">reference_key</span> is critical because it guarantees the same logical alert is not inserted repeatedly.</p>
+
+<h3>currency_service.py and i18n_service.py</h3>
+<p>These services separate presentation rules from route logic. Currency conversion works from INR into display currencies using predefined exchange rates, and language normalization collapses inputs into supported codes like English, Hindi, and Marathi.</p>
+
+<h3>schema_service.py</h3>
+<p>This service protects older local databases from crashing under the new code. It checks live schema and applies incremental corrections so the synced project can still run even if the earlier database lacked the newest columns.</p>
+
+<h2>6. Route-to-Template-to-Model Mapping</h2>
+<table>
+<tr><th>Feature</th><th>Route</th><th>Models</th><th>Template</th><th>Primary Service</th></tr>
+<tr><td>Authentication</td><td>auth_routes.py</td><td>User, ActiveSession</td><td>auth/auth.html</td><td>active_session_service</td></tr>
+<tr><td>Dashboard</td><td>dashboard_routes.py</td><td>Account, Transaction, Budget, Goal, UserSettings</td><td>dashboard/home.html</td><td>automation_service</td></tr>
+<tr><td>Account</td><td>dashboard_routes.py</td><td>User, UserSettings, Account</td><td>dashboard/account.html</td><td>activity_logger</td></tr>
+<tr><td>Transactions</td><td>transaction_routes.py</td><td>Transaction, Account, Category</td><td>dashboard/transactions.html</td><td>transaction_service</td></tr>
+<tr><td>Budgets</td><td>budget_routes.py</td><td>Budget, RecurringTransaction</td><td>dashboard/budgets.html</td><td>automation_service</td></tr>
+<tr><td>Goals</td><td>goal_routes.py</td><td>Goal</td><td>dashboard/goals.html</td><td>activity_logger</td></tr>
+<tr><td>Notifications</td><td>notification_routes.py</td><td>Notification</td><td>dashboard/notifications.html</td><td>notification_service</td></tr>
+<tr><td>Reports</td><td>report_routes.py</td><td>Transaction, Goal, Category, UserSettings</td><td>dashboard/reports.html</td><td>report_service</td></tr>
+<tr><td>Admin</td><td>dashboard_routes.py</td><td>User, ActivityLog, Transaction, Budget, Goal</td><td>dashboard/admin.html</td><td>active_session_service, mongo</td></tr>
+</table>
+
+<h2>7. Honest Differences Between Original Requirement Wording and Current Code</h2>
+<ul>
+<li>Password reset is security-question based, not email-token based.</li>
+<li>Transaction filtering is implemented strongly, but pagination is not present in the current code.</li>
+<li>The home dashboard uses server-generated widths and CSS-based pie chart styling, not a full external chart library on that page.</li>
+<li>Language support is normalization and display-preference oriented, not a full translation framework.</li>
+<li>Automation runs inside the request lifecycle instead of a separate dedicated worker process for all features.</li>
+</ul>
+
+<h2>8. High-Probability Evaluator Questions and Strong Answers</h2>
+<table>
+<tr><th>Question</th><th>Suggested Answer</th></tr>
+<tr><td>Why use both MySQL and MongoDB?</td><td>MySQL stores structured finance entities and relational links. MongoDB stores flexible event and snapshot data like activity logs and report snapshots, which are document-shaped and append-heavy.</td></tr>
+<tr><td>How do recurring transactions work if the user logs in after many days?</td><td>The automation service loops while the recurring item’s next run date is less than or equal to today, so missed executions are caught up and the schedule is advanced correctly.</td></tr>
+<tr><td>How do you avoid duplicate notifications?</td><td>The notification service checks a logical <span class="code">reference_key</span> before inserting. If that key already exists for the same user and alert type, it skips the duplicate.</td></tr>
+<tr><td>How is total balance calculated?</td><td>It is the sum of balances stored across the user’s accounts. Those balances are maintained incrementally whenever transactions are added, edited, deleted, or auto-generated.</td></tr>
+<tr><td>How is average monthly spending computed?</td><td>The dashboard groups expenses month-wise, keeps only months with positive expense totals, and computes the arithmetic mean of those months.</td></tr>
+<tr><td>What if the database is from an old version and missing columns?</td><td>The schema service checks the live MySQL schema on request startup and adds missing fields like security answers, language, and salary tracking fields if necessary.</td></tr>
+<tr><td>How do you prevent duplicate CSV imports?</td><td>Before insertion, the import flow checks whether a transaction with the same user, account, category, type, amount, date, and description already exists. Matching rows are skipped.</td></tr>
+<tr><td>How does the admin know who is online now?</td><td>Through the active-sessions table, where session tokens are touched during authenticated requests and stale sessions are cleaned by time window.</td></tr>
+<tr><td>Why is salary configuration inside account settings?</td><td>Because salary is user-specific financial configuration, not global system configuration. It also directly feeds the recurring automation logic.</td></tr>
+<tr><td>How do you keep balances correct when editing a transaction?</td><td>The code reverses the old financial effect from the old account before applying the new transaction values to the correct account.</td></tr>
+</table>
+
+<h2>9. Final Study Summary for Teammates</h2>
+<p>The best way to explain FinVest in tomorrow’s review is this:</p>
+<ol>
+<li>It is a Flask finance platform with MySQL as the primary transactional store and MongoDB as a secondary log/snapshot store.</li>
+<li>Users register, receive default settings/categories/account automatically, and then manage transactions, categories, budgets, goals, reports, and notifications from a server-rendered dashboard.</li>
+<li>Transactions are the event ledger. Account balances are maintained as fast summaries.</li>
+<li>Budgets, goals, notifications, reports, and admin views all derive insight from the transaction data.</li>
+<li>Automation adds real value through monthly salary posting and recurring transactions.</li>
+<li>Admin is not just a user list; it includes activity auditing, active-session counting, trend visibility, and performance insights.</li>
+</ol>
+<p>If teammates explain the system in those terms, they will sound technically clear, honest, and confident.</p>
+</body>
+</html>

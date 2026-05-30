@@ -380,42 +380,6 @@ python run.py
 
 ---
 
-# 📸 Screenshots
-
-## Login Page
-
-_Add Screenshot Here_
-
-## Registration Page
-
-_Add Screenshot Here_
-
-## Dashboard
-
-_Add Screenshot Here_
-
-## Budget Management
-
-_Add Screenshot Here_
-
-## Reports & Analytics
-
-_Add Screenshot Here_
-
----
-
-# 📈 Future Enhancements
-
-- Bank Account Integration
-- Multi-Currency Support
-- AI-Based Expense Prediction
-- Mobile Application
-- Email Notifications
-- SMS Alerts
-- Investment Tracking
-- Financial Forecasting
-
----
 
 # 👨‍💻 Developer
 

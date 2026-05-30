@@ -1,39 +1,61 @@
-💰 FinVest – Personal Finance & Budget Management System
-📌 Overview
+# 💰 FinVest – Personal Finance Management System
 
-FinVest is a comprehensive personal finance management platform designed to help individuals track income, expenses, budgets, savings goals, and financial insights from a single dashboard.
+A comprehensive web-based Personal Finance Management Platform built using Flask and MySQL that helps users track income, expenses, budgets, savings goals, and financial insights through an interactive dashboard.
 
-The application provides a secure and user-friendly environment where users can manage their financial activities, monitor spending habits, set budget limits, receive alerts, analyze financial trends, and generate reports for better decision-making.
+---
 
-The system follows a modular architecture with role-based access control, transaction auditing, financial analytics, notification management, and administrative monitoring capabilities.
+## 📖 Overview
 
-🎯 Project Objective
+FinVest is designed to simplify personal financial management by providing a centralized platform for managing day-to-day financial activities.
 
-Managing personal finances often requires maintaining multiple spreadsheets, manual calculations, and scattered records. FinVest addresses these challenges by providing:
+The application allows users to:
 
-Centralized financial management
-Real-time income and expense tracking
-Budget planning and monitoring
-Savings goal management
-Financial analytics and reporting
-Notification and reminder services
-Secure user authentication and authorization
-Administrative monitoring and audit capabilities
-🏗️ System Workflow
+- Track income and expenses
+- Create and manage budgets
+- Set financial goals
+- Analyze spending habits
+- Generate reports
+- Receive financial alerts and reminders
+- Monitor overall financial health
+
+The system follows a modular architecture with secure authentication, role-based access control, financial analytics, and administrative monitoring capabilities.
+
+---
+
+## 🎯 Project Objective
+
+Managing personal finances often involves maintaining spreadsheets and manual records.
+
+FinVest solves this problem by providing:
+
+- Centralized Financial Management
+- Real-Time Income & Expense Tracking
+- Budget Planning & Monitoring
+- Savings Goal Management
+- Financial Analytics & Reporting
+- Notifications & Alerts
+- Secure User Authentication
+- Administrative Monitoring
+
+---
+
+# 🔄 Application Workflow
+
+```text
 User Registration/Login
           │
           ▼
  Authentication & Authorization
           │
           ▼
-     User Dashboard
+      Dashboard
           │
  ┌────────┼────────┐
  ▼        ▼        ▼
-Income  Expense  Budgets
-Entry    Entry   Planning
- │         │        │
- └────┬────┴────────┘
+Income  Expenses  Budgets
+Entry    Entry    Planning
+ │         │         │
+ └────┬────┴─────────┘
       ▼
  Transaction Processing
       ▼
@@ -41,217 +63,369 @@ Entry    Entry   Planning
       ▼
  Analytics Engine
       ▼
- Dashboard & Reports
+ Reports & Dashboard
       ▼
  Notifications & Alerts
       ▼
- Savings Goal Tracking
-🔄 Application Workflow
-Step 1: User Authentication
-User registers with email and password.
-Passwords are securely hashed before storage.
-Session management maintains authenticated access.
-Role-based access control differentiates users and administrators.
-Step 2: Account Initialization
+ Goal Tracking
+```
 
-After successful registration:
+---
 
-Default account is created.
-User settings are initialized.
-Default categories are generated.
-Notification preferences are configured.
-Step 3: Transaction Management
+# 📋 Core Modules
 
-Users can:
+| Module | Description |
+|----------|-------------|
+| Authentication & Authorization | User registration, login, password reset, session management |
+| Transaction Management | Record and manage income and expense transactions |
+| Category Management | Create and manage custom transaction categories |
+| Dashboard Module | Financial summary, charts, and KPIs |
+| Budget Planning | Monthly budget creation and tracking |
+| Reports & Analytics | Spending analysis and financial reports |
+| Reminder & Notifications | Budget alerts and reminders |
+| Data Export & Backup | CSV import/export and backups |
+| Savings & Goals | Financial goal creation and tracking |
+| Account Management | User profile and settings management |
+| Admin & System Module | User monitoring and system administration |
 
-Add Income
-Add Expenses
-Categorize Transactions
-Edit Transactions
-Delete Transactions
-Import Transactions from CSV
+---
 
-Each transaction automatically updates account balances.
+# 👤 User Roles
 
-Step 4: Budget Planning
-
-Users create monthly budgets for specific categories.
-
-System continuously:
-
-Calculates current spending
-Compares against budget limits
-Generates warning notifications
-Detects overspending situations
-Step 5: Analytics Processing
-
-Financial data is aggregated to generate:
-
-Monthly Income
-Monthly Expenses
-Net Savings
-Spending Trends
-Category Distribution
-Budget Utilization
-Step 6: Reporting
-
-Reports are generated from historical transaction data and include:
-
-Income Reports
-Expense Reports
-Savings Reports
-Budget Reports
-Trend Analysis
-Step 7: Notifications
-
-The notification engine generates alerts for:
-
-Budget Thresholds
-Budget Exceeded Events
-Goal Deadlines
-Important Financial Events
-Step 8: Savings Goals
+## End User
 
 Users can:
 
-Create Savings Goals
-Track Progress
-Monitor Deadlines
-Receive Goal Notifications
-📋 Core Modules
-Module	Description
-Authentication & Authorization	User registration, login, session management, role control
-Transaction Management	Income and expense recording and maintenance
-Category Management	Custom financial categories
-Dashboard Module	Financial overview and analytics
-Budget Planning	Budget creation and monitoring
-Reports & Analytics	Financial reporting and visualization
-Reminder & Notifications	Alert generation and management
-Data Export & Backup	CSV and JSON exports
-Savings & Goals	Goal tracking and monitoring
-Account Management	User profile and settings
-Admin & System Module	Administrative controls and monitoring
-👤 User Stories Implemented
-Authentication
-User Registration
-User Login
-Password Reset
-Session Management
-Financial Management
-Add Income
-Add Expenses
-Categorize Transactions
-Edit Transactions
-Delete Transactions
-Transaction Filtering
-Budgeting
-Create Monthly Budgets
-Budget vs Actual Spending
-Threshold Notifications
-Analytics
-Income vs Expense Comparison
-Category-wise Spending Analysis
-Average Monthly Spending
-Financial KPIs
-Savings
-Create Savings Goals
-Track Goal Progress
-Goal Deadline Notifications
-Data Management
-CSV Transaction Import
-CSV Export
-JSON Backup
-Administration
-User Monitoring
-Activity Logs
-Session Tracking
-User Blocking/Unblocking
-🛠️ Technology Stack
-Backend
-Python 3.11+
-Flask
-SQLAlchemy ORM
-Flask-Login
-Flask-WTF
-Alembic
-APScheduler
-Frontend
-HTML5
-CSS3
-Bootstrap 5
-JavaScript
-Jinja2 Templates
-Chart.js
-Database
-MySQL 8
-Security
-Password Hashing
-Session Management
-CSRF Protection
-Role-Based Access Control
-Audit Logging
-📂 Project Structure
+- Register and Login
+- Manage Income
+- Manage Expenses
+- Create Budgets
+- Set Savings Goals
+- View Reports
+- Receive Notifications
+- Export Financial Data
+
+---
+
+## Administrator
+
+Administrators can:
+
+- Manage Users
+- Monitor System Activity
+- View Audit Logs
+- Manage Categories
+- Review Usage Metrics
+
+---
+
+# ✨ Features
+
+## 🔐 Authentication
+
+- User Registration
+- Secure Login
+- Password Reset
+- Session Management
+- Role-Based Access Control
+
+---
+
+## 💵 Transaction Management
+
+- Add Income
+- Add Expenses
+- Edit Transactions
+- Delete Transactions
+- Transaction History
+- Date Range Filtering
+
+---
+
+## 📂 Category Management
+
+- Income Categories
+- Expense Categories
+- Custom Categories
+
+---
+
+## 📊 Dashboard & Analytics
+
+- Total Balance
+- Monthly Income
+- Monthly Expenses
+- Net Savings
+- Recent Transactions
+- Financial KPIs
+
+### Analytics
+
+- Income vs Expense Comparison
+- Category-wise Spending Analysis
+- Monthly Spending Trends
+- Average Monthly Spending
+
+---
+
+## 💰 Budget Planning
+
+- Monthly Budget Creation
+- Budget Monitoring
+- Budget Utilization Tracking
+- Overspending Detection
+
+### Budget Alerts
+
+- 80% Threshold Warning
+- 100% Budget Exceeded Alert
+
+---
+
+## 🎯 Savings Goals
+
+Users can:
+
+- Create Goals
+- Track Progress
+- Set Target Amount
+- Set Deadlines
+- Monitor Goal Completion
+
+---
+
+## 🔔 Notification System
+
+Notifications are generated for:
+
+- Budget Threshold Reached
+- Budget Exceeded
+- Goal Deadlines
+- Financial Reminders
+
+---
+
+## 📁 Data Management
+
+- CSV Import
+- CSV Export
+- Backup Support
+
+---
+
+# 🏗️ Database Design
+
+The application is built using the following database models:
+
+### User
+
+Stores user account information.
+
+### Account
+
+Stores user financial accounts and balances.
+
+### Category
+
+Stores income and expense categories.
+
+### Transaction
+
+Stores financial transaction records.
+
+### Budget
+
+Stores category-wise monthly budgets.
+
+### Goal
+
+Stores savings goals and progress.
+
+### UserSettings
+
+Stores user preferences and configurations.
+
+---
+
+# 🛠️ Technology Stack
+
+## Backend
+
+- Python 3.11+
+- Flask
+- SQLAlchemy ORM
+- Flask-Login
+- Flask-WTF
+- Alembic
+- APScheduler
+
+---
+
+## Frontend
+
+- HTML5
+- CSS3
+- Bootstrap 5
+- JavaScript
+- Jinja2 Templates
+- Chart.js
+
+---
+
+## Database
+
+- MySQL 8
+
+---
+
+## Development Tools
+
+- Git
+- GitHub
+- VS Code
+- Linux
+
+---
+
+# 🔐 Security Features
+
+- Password Hashing
+- Session Management
+- CSRF Protection
+- Role-Based Access Control
+- Audit Logging
+- Secure Authentication Flow
+
+---
+
+# 📂 Project Structure
+
+```bash
 FinVest/
 │
+├── backend/
+│
 ├── app/
-│   ├── routes/
 │   ├── models/
+│   ├── routes/
 │   ├── services/
 │   ├── templates/
 │   ├── static/
 │   └── utils/
 │
 ├── migrations/
+│
 ├── requirements.txt
 ├── config.py
 ├── run.py
 └── README.md
-📊 Key Features
-Financial Dashboard
-Total Balance Overview
-Monthly Income
-Monthly Expenses
-Net Savings
-Recent Transactions
-Budget Summary
-Analytics & Visualization
-Income vs Expense Charts
-Category-wise Pie Charts
-Monthly Trends
-Spending Distribution
-Budget Monitoring
-Budget Limits
-Utilization Tracking
-Overspending Detection
-Notification Engine
-Budget Alerts
-Goal Alerts
-System Notifications
-Data Portability
-CSV Import
-CSV Export
-JSON Backup
-🔐 Security Features
-Password Hashing using Werkzeug
-Secure Session Management
-CSRF Protection
-Role-Based Access Control
-Login Attempt Monitoring
-Activity Logging
-Audit Trails
-🚀 Future Enhancements
-Bank Account Integration
-AI-Based Expense Prediction
-Investment Portfolio Tracking
-Mobile Application
-Email & SMS Notifications
-Multi-Currency Conversion
-Advanced Financial Forecasting
+```
 
+---
 
-👨‍💻 Development Team
+# 🚀 Installation
 
-FinVest Capstone Project
+### Clone Repository
 
-Developed as part of the Infosys Springboard Internship Program.
+```bash
+git clone https://github.com/your-username/FinVest.git
+cd FinVest
+```
 
+### Create Virtual Environment
+
+```bash
+python -m venv venv
+```
+
+### Activate Environment
+
+Windows:
+
+```bash
+venv\Scripts\activate
+```
+
+Linux/Mac:
+
+```bash
+source venv/bin/activate
+```
+
+### Install Dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### Configure Database
+
+Update database settings inside:
+
+```python
+config.py
+```
+
+### Run Migrations
+
+```bash
+flask db upgrade
+```
+
+### Start Application
+
+```bash
+python run.py
+```
+
+---
+
+# 📸 Screenshots
+
+## Login Page
+
+_Add Screenshot Here_
+
+## Registration Page
+
+_Add Screenshot Here_
+
+## Dashboard
+
+_Add Screenshot Here_
+
+## Budget Management
+
+_Add Screenshot Here_
+
+## Reports & Analytics
+
+_Add Screenshot Here_
+
+---
+
+# 📈 Future Enhancements
+
+- Bank Account Integration
+- Multi-Currency Support
+- AI-Based Expense Prediction
+- Mobile Application
+- Email Notifications
+- SMS Alerts
+- Investment Tracking
+- Financial Forecasting
+
+---
+
+# 👨‍💻 Developer
+
+**Sudhanshu More**
+
+- GitHub: https://github.com/sudhanshumore10
+- LinkedIn: Add Your LinkedIn Profile
+
+---
+
+# 📄 License
+
+This project was developed as part of the Infosys Springboard Internship Program and is intended for educational and learning purposes.
